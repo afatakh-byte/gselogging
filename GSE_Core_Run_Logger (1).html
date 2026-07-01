@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>GSE Core Run Logger</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#C12126">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  :root{
+    --red:#C12126; --orange:#E75025; --amber:#F29120;
+    --ink:#241B17; --stone:#6B5F58; --cream:#FAF6F0; --card:#FFFFFF; --line:#E7DED4;
+    --good:#2E7D4F;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--cream); color:var(--ink); font-family:'Segoe UI',Roboto,Arial,sans-serif; -webkit-tap-highlight-color:transparent;}
+  header{background:linear-gradient(120deg,var(--red),var(--orange)); color:#fff; padding:18px 16px 22px; position:sticky; top:0; z-index:10; box-shadow:0 4px 14px rgba(0,0,0,.15);}
+  header .eyebrow{font-size:11px; letter-spacing:.14em; text-transform:uppercase; opacity:.85;}
+  header h1{margin:2px 0 0; font-size:20px; font-weight:800; letter-spacing:-.01em;}
+  header .offline-tag{font-size:11px; opacity:.9; margin-top:4px;}
+  main{padding:14px 14px 100px; max-width:520px; margin:0 auto;}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px; margin-bottom:14px; box-shadow:0 1px 3px rgba(36,27,23,.05);}
+  .card h2{margin:0 0 12px; font-size:13px; text-transform:uppercase; letter-spacing:.08em; color:var(--orange); font-weight:800; border-bottom:2px solid var(--line); padding-bottom:8px;}
+  label{display:block; font-size:12.5px; font-weight:600; color:var(--stone); margin:10px 0 4px;}
+  label:first-of-type{margin-top:0;}
+  input[type=text], input[type=number], input[type=date], textarea, select{
+    width:100%; padding:11px 12px; border:1.5px solid var(--line); border-radius:9px;
+    font-size:16px; background:#fff; color:var(--ink); font-family:inherit;
+  }
+  input:focus, textarea:focus, select:focus{outline:2px solid var(--amber); border-color:var(--amber);}
+  textarea{min-height:90px; resize:vertical;}
+  .row2{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .photo-btn{display:flex; align-items:center; justify-content:center; gap:8px; border:2px dashed var(--line); border-radius:10px; padding:18px; margin-top:6px; color:var(--stone); font-weight:600; font-size:14px; cursor:pointer; background:#fff;}
+  .photo-btn.has-photo{border-color:var(--good); color:var(--good);}
+  .photo-preview{width:100%; border-radius:10px; margin-top:8px; display:none; max-height:220px; object-fit:cover;}
+  input[type=file]{display:none;}
+  .calc-strip{display:flex; flex-wrap:wrap; gap:8px; margin-top:14px;}
+  .calc-box{flex:1 1 calc(50% - 8px); min-width:80px; background:var(--cream); border-radius:10px; padding:10px; text-align:center; border:1px solid var(--line);}
+  .calc-box .num{font-size:20px; font-weight:800; font-variant-numeric:tabular-nums;}
+  .calc-box .lbl{font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--stone); margin-top:2px;}
+  .rqd-strip{height:14px; border-radius:7px; margin-top:12px; overflow:hidden; display:flex; border:1px solid var(--line);}
+  .rqd-strip div{height:100%;}
+  .rqd-tag{display:inline-block; margin-top:8px; padding:4px 10px; border-radius:20px; font-size:12px; font-weight:700; color:#fff;}
+  button.submit{width:100%; padding:16px; border:none; border-radius:12px; font-size:16px; font-weight:800; background:linear-gradient(120deg,var(--red),var(--orange)); color:#fff; letter-spacing:.02em; box-shadow:0 6px 16px rgba(193,33,38,.3); cursor:pointer;}
+  button.submit:active{transform:translateY(1px);}
+  button.submit:disabled{opacity:.55;}
+  .status{text-align:center; font-size:13.5px; font-weight:600; margin-top:10px; min-height:18px;}
+  .status.ok{color:var(--good);}
+  .status.err{color:var(--red);}
+  footer{text-align:center; font-size:11px; color:var(--stone); padding:10px 0 30px;}
+  .table-wrap{overflow-x:auto; -webkit-overflow-scrolling:touch; margin-top:4px;}
+  table.runs{border-collapse:collapse; width:100%; font-size:12.5px; min-width:520px;}
+  table.runs th{background:var(--red); color:#fff; text-align:left; padding:8px 8px; font-size:11px; text-transform:uppercase; letter-spacing:.03em;}
+  table.runs td{padding:7px 8px; border-bottom:1px solid var(--line); white-space:nowrap;}
+  table.runs tr:nth-child(even){background:var(--cream);}
+  table.runs td.desc{white-space:normal; max-width:160px;}
+  .pill{padding:2px 7px; border-radius:20px; color:#fff; font-weight:700; font-size:11px;}
+  .del-btn{color:var(--red); font-weight:800; cursor:pointer; font-size:15px; padding:0 4px;}
+  .refresh-row{display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; gap:8px;}
+  .refresh-btn{border:1.5px solid var(--orange); color:var(--orange); background:#fff; border-radius:8px; padding:6px 12px; font-size:12.5px; font-weight:700; cursor:pointer; white-space:nowrap;}
+  .empty-hint{color:var(--stone); font-size:13px; text-align:center; padding:14px 0;}
+  .export-row{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px;}
+  .export-btn{padding:12px; border-radius:10px; border:none; font-weight:700; font-size:13.5px; cursor:pointer; color:#fff;}
+  .export-btn.excel{background:var(--good);}
+  .export-btn.zip{background:var(--amber);}
+  .scope-label{font-size:12px; color:var(--stone); margin-top:12px;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="eyebrow">Geo Solutions Engineering · Field App</div>
+  <h1>Core Run Logger</h1>
+  <div class="offline-tag">📱 Fully offline — data stays on this device</div>
+</header>
+
+<main>
+
+  <div class="card">
+    <h2>Site &amp; Run Info</h2>
+    <label for="project">Project</label>
+    <input type="text" id="project" placeholder="e.g. Batinah Dam 454-01">
+    <div class="row2">
+      <div><label for="hole">Borehole ID</label><input type="text" id="hole" placeholder="e.g. BH-3"></div>
+      <div><label for="runNo">Run No.</label><input type="number" id="runNo" placeholder="1"></div>
+    </div>
+    <div class="row2">
+      <div><label for="date">Date</label><input type="date" id="date"></div>
+      <div><label for="loggedBy">Logged By</label><input type="text" id="loggedBy" placeholder="Your name"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Photos</h2>
+    <label>Core Box Photo</label>
+    <div class="photo-btn" id="boxBtn">📷 Tap to capture core box</div>
+    <img class="photo-preview" id="boxPreview">
+    <input type="file" id="boxInput" accept="image/*" capture="environment">
+
+    <label style="margin-top:14px;">Rig Photo</label>
+    <div class="photo-btn" id="rigBtn">📷 Tap to capture rig</div>
+    <img class="photo-preview" id="rigPreview">
+    <input type="file" id="rigInput" accept="image/*" capture="environment">
+  </div>
+
+  <div class="card">
+    <h2>Recovery &amp; RQD</h2>
+    <div class="row2">
+      <div><label for="runFrom">Run From (m)</label><input type="number" step="0.01" id="runFrom"></div>
+      <div><label for="runTo">Run To (m)</label><input type="number" step="0.01" id="runTo"></div>
+    </div>
+    <div class="row2">
+      <div><label for="coreRecovered">Core Recovered (m)</label><input type="number" step="0.01" id="coreRecovered"></div>
+      <div><label for="solidCore">Solid Core Length (m)</label><input type="number" step="0.01" id="solidCore"></div>
+    </div>
+    <label for="rqdLength">RQD Length ≥10cm (m)</label>
+    <input type="number" step="0.01" id="rqdLength">
+
+    <div class="calc-strip">
+      <div class="calc-box"><div class="num" id="runLenOut">0.00</div><div class="lbl">Run Length (m)</div></div>
+      <div class="calc-box"><div class="num" id="tcrOut">0%</div><div class="lbl">TCR</div></div>
+      <div class="calc-box"><div class="num" id="scrOut">0%</div><div class="lbl">SCR</div></div>
+      <div class="calc-box"><div class="num" id="rqdOut">0%</div><div class="lbl">RQD</div></div>
+    </div>
+    <div class="rqd-strip" id="rqdStrip"><div style="width:100%;background:var(--line);"></div></div>
+    <span class="rqd-tag" id="rqdTag" style="background:var(--stone);">Enter values</span>
+  </div>
+
+  <div class="card">
+    <h2>Geological Description</h2>
+    <label for="description">Rock type, weathering, discontinuities, colour, etc.</label>
+    <textarea id="description" placeholder="e.g. Grey, slightly weathered basalt, medium strong, closely fractured, joints tight and rough..."></textarea>
+  </div>
+
+  <button class="submit" id="submitBtn">Save Run (offline)</button>
+  <div class="status" id="statusMsg"></div>
+
+  <div class="card" style="margin-top:14px;">
+    <div class="refresh-row">
+      <h2 style="border:none; margin:0; padding:0;">Run Log <span id="runCount" style="color:var(--stone); font-weight:600;"></span></h2>
+      <button class="refresh-btn" id="refreshBtn">↻ Refresh</button>
+    </div>
+    <div class="table-wrap">
+      <table class="runs" id="runsTable" style="display:none;">
+        <thead><tr><th>Run</th><th>Depth (m)</th><th>Len</th><th>TCR</th><th>SCR</th><th>RQD</th><th>Class</th><th>Description</th><th></th></tr></thead>
+        <tbody id="runsTbody"></tbody>
+      </table>
+      <div class="empty-hint" id="runsEmpty">No runs saved yet for this hole/date.</div>
+    </div>
+
+    <div class="scope-label">Export scope</div>
+    <select id="exportScope">
+      <option value="hole">This Borehole + Date only</option>
+      <option value="all">All saved data</option>
+    </select>
+    <div class="export-row">
+      <button class="export-btn excel" id="exportExcelBtn">⬇ Export Excel</button>
+      <button class="export-btn zip" id="exportZipBtn">⬇ Export Photos (.zip)</button>
+    </div>
+  </div>
+
+</main>
+
+<footer>GSE Core Run Logger · offline field data collection</footer>
+
+<script>
+const $ = id => document.getElementById(id);
+$('date').value = new Date().toISOString().slice(0,10);
+
+// ================= IndexedDB storage =================
+const DB_NAME = 'gse_core_logger_db';
+const DB_VERSION = 1;
+const STORE = 'runs';
+
+function openDB(){
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if(!db.objectStoreNames.contains(STORE)){
+        const store = db.createObjectStore(STORE, { keyPath:'id', autoIncrement:true });
+        store.createIndex('hole','hole');
+        store.createIndex('date','date');
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function addRun(run){
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readwrite');
+    tx.objectStore(STORE).add(run);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+async function getAllRuns(){
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readonly');
+    const req = tx.objectStore(STORE).getAll();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function deleteRun(id){
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readwrite');
+    tx.objectStore(STORE).delete(id);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+// ================= photo capture =================
+function wirePhoto(btnId, inputId, previewId){
+  const btn = $(btnId), input = $(inputId), preview = $(previewId);
+  btn.addEventListener('click', () => input.click());
+  input.addEventListener('change', () => {
+    const file = input.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      preview.src = e.target.result;
+      preview.style.display = 'block';
+      btn.classList.add('has-photo');
+      btn.textContent = '✅ ' + file.name;
+      btn.dataset.base64 = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+wirePhoto('boxBtn','boxInput','boxPreview');
+wirePhoto('rigBtn','rigInput','rigPreview');
+
+// ================= live calc =================
+function rqdClass(rqd){
+  if(rqd < 25) return {label:'Very Poor', color:'#C12126'};
+  if(rqd < 50) return {label:'Poor', color:'#E75025'};
+  if(rqd < 75) return {label:'Fair', color:'#F29120'};
+  if(rqd < 90) return {label:'Good', color:'#3F8F5C'};
+  return {label:'Excellent', color:'#2E7D4F'};
+}
+function recalc(){
+  const from = parseFloat($('runFrom').value) || 0;
+  const to = parseFloat($('runTo').value) || 0;
+  const rec = parseFloat($('coreRecovered').value) || 0;
+  const solid = parseFloat($('solidCore').value) || 0;
+  const rqdLen = parseFloat($('rqdLength').value) || 0;
+  const len = Math.max(to - from, 0);
+
+  $('runLenOut').textContent = len.toFixed(2);
+  const tcr = len > 0 ? (rec/len*100) : 0;
+  const scr = len > 0 ? (solid/len*100) : 0;
+  const rqd = len > 0 ? (rqdLen/len*100) : 0;
+  $('tcrOut').textContent = (len>0 ? tcr.toFixed(0) : 0) + '%';
+  $('scrOut').textContent = (len>0 ? scr.toFixed(0) : 0) + '%';
+  $('rqdOut').textContent = (len>0 ? rqd.toFixed(0) : 0) + '%';
+
+  const strip = $('rqdStrip'); const tag = $('rqdTag');
+  if(len > 0 && rqdLen > 0){
+    const cls = rqdClass(Math.min(rqd,100));
+    strip.innerHTML = `<div style="width:${Math.min(rqd,100)}%;background:${cls.color};"></div><div style="width:${100-Math.min(rqd,100)}%;background:var(--line);"></div>`;
+    tag.textContent = cls.label + ' (' + rqd.toFixed(0) + '% RQD)';
+    tag.style.background = cls.color;
+  } else {
+    strip.innerHTML = `<div style="width:100%;background:var(--line);"></div>`;
+    tag.textContent = 'Enter values';
+    tag.style.background = 'var(--stone)';
+  }
+}
+['runFrom','runTo','coreRecovered','solidCore','rqdLength'].forEach(id => $(id).addEventListener('input', recalc));
+
+// ================= run log table =================
+function currentFilter(){
+  return { hole: $('hole').value.trim(), date: $('date').value };
+}
+async function loadRuns(){
+  const { hole, date } = currentFilter();
+  const tbody = $('runsTbody'); const table = $('runsTable'); const empty = $('runsEmpty'); const countEl = $('runCount');
+
+  if(!hole){
+    empty.textContent = 'Enter a Borehole ID above to see its saved runs.';
+    empty.style.display = 'block'; table.style.display = 'none'; countEl.textContent = '';
+    return;
+  }
+  const all = await getAllRuns();
+  const filtered = all.filter(r => r.hole === hole && r.date === date)
+    .sort((a,b) => (parseFloat(a.runNo)||0) - (parseFloat(b.runNo)||0));
+
+  if(filtered.length === 0){
+    empty.textContent = 'No runs saved yet for this hole/date.';
+    empty.style.display = 'block'; table.style.display = 'none'; countEl.textContent = '';
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(r => {
+    const cls = rqdClass(parseFloat(r.rqd) || 0);
+    return `<tr>
+      <td>${r.runNo}</td><td>${r.runFrom}–${r.runTo}</td><td>${r.runLength}</td>
+      <td>${r.tcr}%</td><td>${r.scr}%</td><td>${r.rqd}%</td>
+      <td><span class="pill" style="background:${cls.color};">${r.rqdClass}</span></td>
+      <td class="desc">${(r.description||'').toString().slice(0,80)}</td>
+      <td><span class="del-btn" data-id="${r.id}">✕</span></td>
+    </tr>`;
+  }).join('');
+  countEl.textContent = '(' + filtered.length + ')';
+  table.style.display = 'table'; empty.style.display = 'none';
+
+  tbody.querySelectorAll('.del-btn').forEach(el => {
+    el.addEventListener('click', async () => {
+      if(confirm('Delete this run? This cannot be undone.')){
+        await deleteRun(parseInt(el.dataset.id));
+        loadRuns();
+      }
+    });
+  });
+}
+$('refreshBtn').addEventListener('click', loadRuns);
+$('hole').addEventListener('change', loadRuns);
+$('date').addEventListener('change', loadRuns);
+
+// ================= save run =================
+$('submitBtn').addEventListener('click', async () => {
+  const statusEl = $('statusMsg'); statusEl.className = 'status';
+  if(!$('hole').value || !$('runFrom').value || !$('runTo').value){
+    statusEl.textContent = 'Please fill in Borehole ID and run depths.';
+    statusEl.className = 'status err';
+    return;
+  }
+
+  const from = parseFloat($('runFrom').value) || 0;
+  const to = parseFloat($('runTo').value) || 0;
+  const len = +(to - from).toFixed(2);
+  const rec = parseFloat($('coreRecovered').value) || 0;
+  const solid = parseFloat($('solidCore').value) || 0;
+  const rqdLen = parseFloat($('rqdLength').value) || 0;
+  const tcr = len > 0 ? +((rec/len)*100).toFixed(1) : 0;
+  const scr = len > 0 ? +((solid/len)*100).toFixed(1) : 0;
+  const rqd = len > 0 ? +((rqdLen/len)*100).toFixed(1) : 0;
+  const cls = rqdClass(rqd).label;
+
+  const run = {
+    project: $('project').value, hole: $('hole').value.trim(),
+    date: $('date').value, runNo: $('runNo').value, loggedBy: $('loggedBy').value,
+    runFrom: from, runTo: to, runLength: len,
+    coreRecovered: rec, tcr, solidCore: solid, scr,
+    rqdLength: rqdLen, rqd, rqdClass: cls,
+    description: $('description').value,
+    boxPhoto: $('boxBtn').dataset.base64 || '',
+    rigPhoto: $('rigBtn').dataset.base64 || '',
+    savedAt: new Date().toISOString()
+  };
+
+  const btn = $('submitBtn'); btn.disabled = true; btn.textContent = 'Saving...';
+  try{
+    await addRun(run);
+    statusEl.textContent = `Saved. Run ${run.runNo || ''} — TCR ${tcr}%, SCR ${scr}%, RQD ${rqd}% (${cls}).`;
+    statusEl.className = 'status ok';
+
+    $('runNo').value = (parseInt(run.runNo)||0) + 1;
+    $('runFrom').value = run.runTo;
+    $('runTo').value = ''; $('coreRecovered').value = ''; $('solidCore').value = '';
+    $('rqdLength').value = ''; $('description').value = '';
+    ['boxBtn','rigBtn'].forEach(id=>{
+      $(id).classList.remove('has-photo');
+      $(id).textContent = '📷 Tap to capture';
+      delete $(id).dataset.base64;
+    });
+    $('boxPreview').style.display='none'; $('rigPreview').style.display='none';
+    recalc();
+    loadRuns();
+  } catch(err){
+    statusEl.textContent = 'Could not save: ' + err.message;
+    statusEl.className = 'status err';
+  } finally {
+    btn.disabled = false; btn.textContent = 'Save Run (offline)';
+  }
+});
+
+// ================= exports =================
+async function getExportRows(){
+  const scope = $('exportScope').value;
+  const all = await getAllRuns();
+  if(scope === 'all') return all;
+  const { hole, date } = currentFilter();
+  return all.filter(r => r.hole === hole && r.date === date);
+}
+
+$('exportExcelBtn').addEventListener('click', async () => {
+  const rows = await getExportRows();
+  if(rows.length === 0){ alert('No runs to export for this scope.'); return; }
+  const data = rows
+    .sort((a,b)=> (a.hole||'').localeCompare(b.hole||'') || (parseFloat(a.runNo)||0)-(parseFloat(b.runNo)||0))
+    .map(r => ({
+      Project: r.project, Borehole: r.hole, Date: r.date, 'Run No': r.runNo,
+      'Run From (m)': r.runFrom, 'Run To (m)': r.runTo, 'Run Length (m)': r.runLength,
+      'Core Recovered (m)': r.coreRecovered, 'TCR (%)': r.tcr,
+      'Solid Core (m)': r.solidCore, 'SCR (%)': r.scr,
+      'RQD Length (m)': r.rqdLength, 'RQD (%)': r.rqd, 'RQD Class': r.rqdClass,
+      'Logged By': r.loggedBy, 'Description': r.description
+    }));
+  const ws = XLSX.utils.json_to_sheet(data);
+  ws['!cols'] = Object.keys(data[0]).map(k => ({ wch: Math.max(k.length, 14) }));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Core Log');
+  const scope = $('exportScope').value;
+  const { hole, date } = currentFilter();
+  const filename = scope === 'all'
+    ? `GSE_CoreLog_AllData_${new Date().toISOString().slice(0,10)}.xlsx`
+    : `GSE_CoreLog_${hole || 'Hole'}_${date}.xlsx`;
+  XLSX.writeFile(wb, filename);
+});
+
+$('exportZipBtn').addEventListener('click', async () => {
+  const rows = await getExportRows();
+  const withPhotos = rows.filter(r => r.boxPhoto || r.rigPhoto);
+  if(withPhotos.length === 0){ alert('No photos to export for this scope.'); return; }
+  const zip = new JSZip();
+  withPhotos.forEach(r => {
+    const prefix = `${r.hole}_Run${r.runNo}_${r.date}`;
+    if(r.boxPhoto){
+      const b64 = r.boxPhoto.split(',')[1];
+      zip.file(prefix + '_CoreBox.jpg', b64, { base64: true });
+    }
+    if(r.rigPhoto){
+      const b64 = r.rigPhoto.split(',')[1];
+      zip.file(prefix + '_Rig.jpg', b64, { base64: true });
+    }
+  });
+  const blob = await zip.generateAsync({ type: 'blob' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const scope = $('exportScope').value;
+  const { hole, date } = currentFilter();
+  a.href = url;
+  a.download = scope === 'all'
+    ? `GSE_CoreLog_Photos_AllData_${new Date().toISOString().slice(0,10)}.zip`
+    : `GSE_CoreLog_Photos_${hole || 'Hole'}_${date}.zip`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+// ================= init =================
+recalc();
+loadRuns();
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('service-worker.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
